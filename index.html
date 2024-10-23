@@ -1,0 +1,152 @@
+<html>
+  <head>
+    <style>
+      :root {
+        --body-bg: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        --msger-bg: #fff;
+        --border: 2px solid #ddd;
+        --left-msg-bg: #ececec;
+        --right-msg-bg: #579ffb;
+      }
+      body {
+        font-family: Arial, sans-serif;
+      }
+      .container {
+        max-width: 600px;
+        margin: 40px auto;
+        padding: 20px;
+      }
+      #messages {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      #message-input {
+        padding: 10px;
+        border: 1px solid #ccc;
+      }
+      #send-message {
+        padding: 10px 20px;
+        border: none;
+        background-color: #4caf50;
+        color: #fff;
+        cursor: pointer;
+      }
+      .msg-bubble {
+        max-width: 450px;
+        padding: 15px;
+        border-radius: 15px;
+        display: list-item;
+      }
+      .left-msg {
+        background: var(--left-msg-bg);
+      }
+      .right-msg {
+        background: var(--right-msg-bg);
+        border-bottom-right-radius: 0;
+        text-align: right;
+      }
+      .msg-user {
+        padding-right: 20px;
+      }
+      .msg-content {
+        padding-left: 10%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Chat</h1>
+      </header>
+      <main>
+        <ul id="messages"></ul>
+        <input type="text" id="message-input" placeholder="Type a message..." />
+        <button id="send-message">Send</button>
+      </main>
+    </div>
+    <script type="text/javascript">
+      const messagesList = document.getElementById("messages");
+      const messageInput = document.getElementById("message-input");
+      const sendMessageButton = document.getElementById("send-message");
+
+      let myid = null;
+      let messages = [];
+      const username = "gabe" + Math.floor(Math.random() * 1000);
+      const ws = new WebSocket(`ws://localhost:3000?user=${username}`);
+
+      function rerender_messages() {
+        // clear
+        messagesList.innerHTML = "";
+        //
+        for (let message of messages) {
+          var item = document.createElement("li");
+
+          var container = document.createElement("div");
+          container.classList.add("msg-bubble");
+          if (message.client_id == myid && message.username == username) {
+            container.classList.add("right-msg");
+          } else {
+            container.classList.add("left-msg");
+          }
+
+          var name = document.createElement("b");
+          name.innerHTML = message.username;
+          name.classList.add(".msg-user");
+          container.appendChild(name);
+
+          var content = document.createElement("div");
+          content.innerHTML = message.message;
+          content.classList.add(".msg-content");
+          container.appendChild(content);
+
+          item.appendChild(container);
+
+          messagesList.appendChild(item);
+        }
+      }
+
+      console.log("connecting to 3000");
+
+      ws.onopen = () => {
+        console.log("ws opened on browser");
+      };
+
+      ws.onmessage = (message) => {
+        const data = JSON.parse(message.data);
+        // we would use to_msgtype but idk how to import the function here
+        console.log(
+          `message received ${username}@${myid} -> ${data.type}`,
+          JSON.parse(message.data)
+        );
+        if (data.type == 2) {
+          // join
+          myid = data.id;
+          messages = data.messages;
+          rerender_messages();
+        }
+        if (data.type == 1) {
+          if (data.id == myid || data.username == username) return;
+          messages.push(data.message);
+          rerender_messages();
+        }
+      };
+
+      // Add event listener to send message button
+      sendMessageButton.addEventListener("click", () => {
+        const message = messageInput.value.trim();
+        if (message) {
+          messageInput.value = "";
+          const obj = {
+            message: message,
+            username,
+            client_id: myid,
+          };
+          messages.push(obj);
+          ws.send(JSON.stringify(obj));
+          rerender_messages();
+        }
+      });
+    </script>
+  </body>
+</html>
